@@ -37,32 +37,34 @@ const $ = (id) => document.getElementById(id);
 $('signin-btn').onclick = () => signInWithPopup(auth, new GoogleAuthProvider());
 $('signout-btn').onclick = () => { vaultKey = null; lastHash = GENESIS_HASH; decryptedTurns = []; signOut(auth); };
 
-$('reset-btn').onclick = async () => {
-  const btn = document.getElementById('reset-btn');
-  if (!confirm('Are you sure you want to clear your entire journal history? This cannot be undone.')) return;
-  if (btn) btn.disabled = true;
-  try {
-    const entriesRef = collection(db, 'users', currentUser.uid, 'entries');
-    const snap = await getDocs(entriesRef);
-    const promises = snap.docs.map(docSnap => deleteDoc(docSnap.ref));
-    
-    const auditRef = collection(db, 'users', currentUser.uid, 'auditLog');
-    const auditSnap = await getDocs(auditRef);
-    auditSnap.docs.forEach(docSnap => promises.push(deleteDoc(docSnap.ref)));
-    
-    await Promise.all(promises);
-    
-    lastHash = GENESIS_HASH;
-    decryptedTurns = [];
-    
-    alert('Journal reset successfully.');
-    await loadEntries();
-  } catch (err) {
-    alert('Failed to reset journal: ' + err.message);
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-};
+const resetBtn = document.getElementById('reset-btn');
+if (resetBtn) {
+  resetBtn.onclick = async () => {
+    if (!confirm('Are you sure you want to clear your entire journal history? This cannot be undone.')) return;
+    resetBtn.disabled = true;
+    try {
+      const entriesRef = collection(db, 'users', currentUser.uid, 'entries');
+      const snap = await getDocs(entriesRef);
+      const promises = snap.docs.map(docSnap => deleteDoc(docSnap.ref));
+      
+      const auditRef = collection(db, 'users', currentUser.uid, 'auditLog');
+      const auditSnap = await getDocs(auditRef);
+      auditSnap.docs.forEach(docSnap => promises.push(deleteDoc(docSnap.ref)));
+      
+      await Promise.all(promises);
+      
+      lastHash = GENESIS_HASH;
+      decryptedTurns = [];
+      
+      alert('Journal reset successfully.');
+      await loadEntries();
+    } catch (err) {
+      alert('Failed to reset journal: ' + err.message);
+    } finally {
+      resetBtn.disabled = false;
+    }
+  };
+}
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
