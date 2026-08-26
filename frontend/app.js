@@ -3,7 +3,7 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
-  getFirestore, doc, getDoc, setDoc, collection, addDoc, query, orderBy, getDocs,
+  getFirestore, doc, getDoc, setDoc, collection, addDoc, query, orderBy, getDocs, deleteDoc,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import {
   deriveKey, randomSaltB64, encryptText, decryptText,
@@ -36,6 +36,33 @@ const $ = (id) => document.getElementById(id);
 // ---------- Auth ----------
 $('signin-btn').onclick = () => signInWithPopup(auth, new GoogleAuthProvider());
 $('signout-btn').onclick = () => { vaultKey = null; lastHash = GENESIS_HASH; decryptedTurns = []; signOut(auth); };
+
+$('reset-btn').onclick = async () => {
+  const btn = document.getElementById('reset-btn');
+  if (!confirm('Are you sure you want to clear your entire journal history? This cannot be undone.')) return;
+  if (btn) btn.disabled = true;
+  try {
+    const entriesRef = collection(db, 'users', currentUser.uid, 'entries');
+    const snap = await getDocs(entriesRef);
+    const promises = snap.docs.map(docSnap => deleteDoc(docSnap.ref));
+    
+    const auditRef = collection(db, 'users', currentUser.uid, 'auditLog');
+    const auditSnap = await getDocs(auditRef);
+    auditSnap.docs.forEach(docSnap => promises.push(deleteDoc(docSnap.ref)));
+    
+    await Promise.all(promises);
+    
+    lastHash = GENESIS_HASH;
+    decryptedTurns = [];
+    
+    alert('Journal reset successfully.');
+    await loadEntries();
+  } catch (err) {
+    alert('Failed to reset journal: ' + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;

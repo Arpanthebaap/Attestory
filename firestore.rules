@@ -15,9 +15,10 @@ service cloud.firestore {
       // other than the owner can touch the doc at all.
       match /entries/{entryId} {
         allow read: if request.auth != null && request.auth.uid == uid;
-        allow write: if request.auth != null
+        allow create, update: if request.auth != null
           && request.auth.uid == uid
           && !('plaintext' in request.resource.data); // defense in depth: reject any field named "plaintext"
+        allow delete: if request.auth != null && request.auth.uid == uid;
       }
 
       // Per-user salt used to derive their local encryption key. Not secret on
