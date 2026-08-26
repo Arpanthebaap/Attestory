@@ -5,6 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Attestory — a journal that proves itself</title>
 <link rel="stylesheet" href="style.css" />
+<script>
+  window.onerror = function(message, source, lineno, colno, error) {
+    const div = document.createElement('div');
+    div.style.color = '#ff5656';
+    div.style.background = 'rgba(255, 86, 86, 0.1)';
+    div.style.border = '1px solid #ff5656';
+    div.style.padding = '12px';
+    div.style.margin = '20px';
+    div.style.borderRadius = '8px';
+    div.style.fontFamily = 'monospace';
+    div.style.whiteSpace = 'pre-wrap';
+    div.textContent = 'Error: ' + message + '\nAt: ' + source + ':' + lineno + ':' + colno;
+    document.body.prepend(div);
+    return false;
+  };
+  window.onunhandledrejection = function(event) {
+    const div = document.createElement('div');
+    div.style.color = '#ff5656';
+    div.style.background = 'rgba(255, 86, 86, 0.1)';
+    div.style.border = '1px solid #ff5656';
+    div.style.padding = '12px';
+    div.style.margin = '20px';
+    div.style.borderRadius = '8px';
+    div.style.fontFamily = 'monospace';
+    div.style.whiteSpace = 'pre-wrap';
+    div.textContent = 'Unhandled Promise Rejection: ' + (event.reason?.message || event.reason);
+    document.body.prepend(div);
+  };
+</script>
 </head>
 <body>
 
