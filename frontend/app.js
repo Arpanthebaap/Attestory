@@ -39,18 +39,26 @@ $('signout-btn').onclick = () => { vaultKey = null; lastHash = GENESIS_HASH; dec
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
+  const toggleEl = (newId, oldId, action, className = 'hidden') => {
+    const el = document.getElementById(newId) || document.getElementById(oldId);
+    if (el) el.classList[action](className);
+  };
+  const bodySignedOut = document.getElementById('body-signed-out') || document.querySelector('.hero');
+  const bodySignedIn = document.getElementById('body-signed-in') || document.querySelector('.journal');
+
   if (user) {
-    $('header-signed-out').classList.add('hidden');
-    $('header-signed-in').classList.remove('hidden');
-    $('body-signed-out').classList.add('hidden');
-    $('body-signed-in').classList.remove('hidden');
-    $('user-email').textContent = user.email;
+    toggleEl('header-signed-out', 'signed-out', 'add');
+    toggleEl('header-signed-in', 'signed-in', 'remove');
+    if (bodySignedOut) bodySignedOut.classList.add('hidden');
+    if (bodySignedIn) bodySignedIn.classList.remove('hidden');
+    const emailEl = document.getElementById('user-email');
+    if (emailEl) emailEl.textContent = user.email;
     await promptUnlock();
   } else {
-    $('header-signed-out').classList.remove('hidden');
-    $('header-signed-in').classList.add('hidden');
-    $('body-signed-out').classList.remove('hidden');
-    $('body-signed-in').classList.add('hidden');
+    toggleEl('header-signed-out', 'signed-out', 'remove');
+    toggleEl('header-signed-in', 'signed-in', 'add');
+    if (bodySignedOut) bodySignedOut.classList.remove('hidden');
+    if (bodySignedIn) bodySignedIn.classList.add('hidden');
   }
 });
 
