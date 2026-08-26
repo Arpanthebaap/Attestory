@@ -75,6 +75,26 @@ function redact(text) {
   return { output, found };
 }
 
+function sanitizeContents(contents) {
+  if (!contents || contents.length === 0) return [];
+  const sanitized = [];
+  for (const turn of contents) {
+    if (sanitized.length === 0) {
+      sanitized.push(turn);
+    } else {
+      const lastTurn = sanitized[sanitized.length - 1];
+      if (lastTurn.role === turn.role) {
+        const lastText = lastTurn.parts[0].text || '';
+        const currentText = turn.parts[0].text || '';
+        lastTurn.parts[0].text = lastText + '\n' + currentText;
+      } else {
+        sanitized.push(turn);
+      }
+    }
+  }
+  return sanitized;
+}
+
 // ---- Chat endpoint: the only route that talks to Gemini ----
 app.post('/api/chat', requireAuth, async (req, res) => {
   const { message, history, redactPii } = req.body || {};
@@ -100,16 +120,17 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
   try {
     const apiKey = await getGeminiApiKey();
-    const contents = [
+    const rawContents = [
       ...safeHistory.map((turn) => ({
         role: turn.role === 'model' ? 'model' : 'user',
         parts: [{ text: String(turn.text || '').slice(0, 4000) }],
       })),
       { role: 'user', parts: [{ text: outgoing }] },
     ];
+    const contents = sanitizeContents(rawContents);
 
     const geminiRes = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -129,7 +150,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('Gemini error', geminiRes.status); // status only — never log message content
+      console.error('Gemini error status:', geminiRes.status, 'body:', errText);
       return res.status(502).json({ error: 'Gemini request failed', status: geminiRes.status });
     }
 
