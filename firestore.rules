@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Every document a user owns lives under users/{uid}/...
+    // request.auth.uid must match the path — this is the isolation boundary
+    // that satisfies "each user's logs in Firestore, zero cross-user leakage."
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Journal entries: client writes ciphertext only. We can't enforce
+      // "this is actually ciphertext" from a security rule, but we CAN enforce
+      // that plaintext-shaped fields never exist on the schema, and that nobody
+      // other than the owner can touch the doc at all.
+      match /entries/{entryId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == uid
+          && !('plaintext' in request.resource.data); // defense in depth: reject any field named "plaintext"
+      }
+
+      // Per-user salt used to derive their local encryption key. Not secret on
+      // its own (a salt doesn't need to be), but still scoped to the owner.
+      match /keyMeta/{doc} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Metadata-only audit log, written by the backend service account
+      // (via Admin SDK, which bypasses these rules) and read-only for the owner.
+      match /auditLog/{entryId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false; // only the backend's Admin SDK writes here
+      }
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

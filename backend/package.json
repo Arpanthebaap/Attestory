@@ -1,0 +1,20 @@
+{
+  "name": "attestory-gateway",
+  "version": "1.0.0",
+  "description": "Stateless Cloud Run gateway that talks to Gemini on behalf of an authenticated user. Never persists plaintext.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "firebase-admin": "^12.3.1",
+    "@google-cloud/secret-manager": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
