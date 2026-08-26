@@ -15,6 +15,7 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+const fetch = require('node-fetch');
 
 const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || true }));
