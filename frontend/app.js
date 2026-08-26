@@ -40,13 +40,17 @@ $('signout-btn').onclick = () => { vaultKey = null; lastHash = GENESIS_HASH; dec
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   if (user) {
-    $('signed-out').classList.add('hidden');
-    $('signed-in').classList.remove('hidden');
+    $('header-signed-out').classList.add('hidden');
+    $('header-signed-in').classList.remove('hidden');
+    $('body-signed-out').classList.add('hidden');
+    $('body-signed-in').classList.remove('hidden');
     $('user-email').textContent = user.email;
     await promptUnlock();
   } else {
-    $('signed-out').classList.remove('hidden');
-    $('signed-in').classList.add('hidden');
+    $('header-signed-out').classList.remove('hidden');
+    $('header-signed-in').classList.add('hidden');
+    $('body-signed-out').classList.remove('hidden');
+    $('body-signed-in').classList.add('hidden');
   }
 });
 

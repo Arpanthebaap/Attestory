@@ -10,10 +10,10 @@
 
 <header class="topbar">
   <div class="brand">Attestory</div>
-  <div id="signed-out">
+  <div id="header-signed-out">
     <button id="signin-btn" class="btn-primary">Sign in with Google</button>
   </div>
-  <div id="signed-in" class="hidden">
+  <div id="header-signed-in" class="hidden">
     <span id="user-email" class="muted"></span>
     <button id="dashboard-btn" class="btn-ghost">Security dashboard</button>
     <button id="verify-btn" class="btn-ghost">Verify integrity</button>
@@ -22,7 +22,7 @@
 </header>
 
 <main id="app">
-  <div id="signed-out" class="hero hidden">
+  <div id="body-signed-out" class="hero hidden">
     <h1>A journal that proves itself.</h1>
     <p class="muted">
       Your entries are encrypted on your device before they're stored — we never hold the key.
@@ -31,7 +31,7 @@
     </p>
   </div>
 
-  <div id="signed-in" class="journal hidden">
+  <div id="body-signed-in" class="journal hidden">
     <div id="verify-result" class="verify-result"></div>
     <div id="entries-list" class="entries-list"></div>
 
