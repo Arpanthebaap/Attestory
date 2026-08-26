@@ -20,6 +20,7 @@ const fetch = require('node-fetch');
 const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || true }));
 app.use(express.json({ limit: '256kb' })); // journal turns are short; cap payload size defensively
+app.use(express.static('public')); // serve static frontend files
 
 admin.initializeApp(); // On Cloud Run this picks up the attached service account automatically.
 

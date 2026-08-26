@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Attestory — a journal that proves itself</title>
+<link rel="stylesheet" href="style.css" />
+<script>
+  window.onerror = function(message, source, lineno, colno, error) {
+    const div = document.createElement('div');
+    div.style.color = '#ff5656';
+    div.style.background = 'rgba(255, 86, 86, 0.1)';
+    div.style.border = '1px solid #ff5656';
+    div.style.padding = '12px';
+    div.style.margin = '20px';
+    div.style.borderRadius = '8px';
+    div.style.fontFamily = 'monospace';
+    div.style.whiteSpace = 'pre-wrap';
+    div.textContent = 'Error: ' + message + '\nAt: ' + source + ':' + lineno + ':' + colno;
+    document.body.prepend(div);
+    return false;
+  };
+  window.onunhandledrejection = function(event) {
+    const div = document.createElement('div');
+    div.style.color = '#ff5656';
+    div.style.background = 'rgba(255, 86, 86, 0.1)';
+    div.style.border = '1px solid #ff5656';
+    div.style.padding = '12px';
+    div.style.margin = '20px';
+    div.style.borderRadius = '8px';
+    div.style.fontFamily = 'monospace';
+    div.style.whiteSpace = 'pre-wrap';
+    div.textContent = 'Unhandled Promise Rejection: ' + (event.reason?.message || event.reason);
+    document.body.prepend(div);
+  };
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">Attestory</div>
+  <div id="header-signed-out">
+    <button id="signin-btn" class="btn-primary">Sign in with Google</button>
+  </div>
+  <div id="header-signed-in" class="hidden">
+    <span id="user-email" class="muted"></span>
+    <button id="dashboard-btn" class="btn-ghost">Security dashboard</button>
+    <button id="verify-btn" class="btn-ghost">Verify integrity</button>
+    <button id="reset-btn" class="btn-ghost">Reset journal</button>
+    <button id="signout-btn" class="btn-ghost">Sign out</button>
+  </div>
+</header>
+
+<main id="app">
+  <div id="body-signed-out" class="hero hidden">
+    <h1>A journal that proves itself.</h1>
+    <p class="muted">
+      Your entries are encrypted on your device before they're stored — we never hold the key.
+      Every entry is chained to the one before it, so if anything is ever silently altered,
+      you can prove it.
+    </p>
+  </div>
+
+  <div id="body-signed-in" class="journal hidden">
+    <div id="verify-result" class="verify-result"></div>
+    <div id="entries-list" class="entries-list"></div>
+
+    <form id="chat-form" class="chat-form">
+      <label class="redact-row">
+        <input type="checkbox" id="redact-toggle" />
+        Redact obvious PII (emails, phone numbers, card numbers) before sending to Gemini
+      </label>
+      <div class="chat-input-row">
+        <input id="chat-input" type="text" placeholder="Write what's on your mind…" autocomplete="off" />
+        <button type="submit" class="btn-primary">Send</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<!-- Unlock / set passphrase modal -->
+<div id="unlock-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2 id="unlock-title">Enter your journal passphrase</h2>
+    <p class="muted small">
+      This passphrase never leaves your browser. We cannot reset it for you —
+      that's the tradeoff for us never being able to read your entries either.
+    </p>
+    <form id="unlock-form">
+      <input id="passphrase-input" type="password" placeholder="Passphrase" required autocomplete="off" />
+      <button type="submit" class="btn-primary">Unlock</button>
+    </form>
+  </div>
+</div>
+
+<!-- Security dashboard modal -->
+<div id="dashboard-modal" class="modal-overlay hidden">
+  <div class="modal wide">
+    <h2>Security dashboard</h2>
+    <ul class="status-list">
+      <li>✓ Entries encrypted with AES-256-GCM before leaving your device</li>
+      <li>✓ Encryption key derived from your passphrase, never transmitted</li>
+      <li>✓ Firestore access restricted to your own uid by security rules</li>
+      <li>✓ Gemini API key stored in Secret Manager, never in source or env files</li>
+      <li>✓ Each entry cryptographically chained to the previous one (tamper-evident)</li>
+    </ul>
+    <h3>AI access log (metadata only — never message content)</h3>
+    <div id="audit-list" class="audit-list"></div>
+    <button id="close-dashboard" class="btn-ghost">Close</button>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
