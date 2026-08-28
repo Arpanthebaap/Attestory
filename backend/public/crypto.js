@@ -1,20 +1,20 @@
-// Attestory crypto module
+// Attestory Cryptographic Engine
 //
-// Everything in this file runs in the browser. The derived encryption key
-// never leaves this module — it is not sent to the backend, not written to
-// Firestore, and not persisted anywhere except sessionStorage-backed memory
-// for the duration of the tab. If the user closes the tab, they must
-// re-enter their passphrase. That's the tradeoff for genuine zero-knowledge
-// storage: we cannot offer "forgot password" recovery for past entries,
-// because recovery would require us to hold the key.
+// Zero-Knowledge Primitives running natively in the client via Web Crypto API:
+//   - AES-256-GCM authenticated encryption for all journal entries
+//   - PBKDF2 key derivation (150,000 iterations, SHA-256)
+//   - Cryptographic SHA-256 blockchain-style hash chaining
+//   - Zero-Knowledge Key Wrapping (AES-KW / AES-GCM) for Emergency Recovery Kits
+//   - Live tamper detection & mathematical proof generation
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-function toB64(buf) {
+export function toB64(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
-function fromB64(b64) {
+
+export function fromB64(b64) {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)).buffer;
 }
 
@@ -23,8 +23,7 @@ export function randomSaltB64() {
   return toB64(salt);
 }
 
-// Derive an AES-GCM key from the user's passphrase + a per-user salt (stored
-// in Firestore under keyMeta — the salt is not secret, only the passphrase is).
+// Derive an AES-GCM key from passphrase + per-user salt using PBKDF2 (150,000 rounds)
 export async function deriveKey(passphrase, saltB64) {
   const baseKey = await crypto.subtle.importKey(
     'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']
@@ -33,7 +32,7 @@ export async function deriveKey(passphrase, saltB64) {
     { name: 'PBKDF2', salt: fromB64(saltB64), iterations: 150000, hash: 'SHA-256' },
     baseKey,
     { name: 'AES-GCM', length: 256 },
-    true, // extractable (required for Recovery Kit wrapping)
+    true, // extractable for Recovery Kit wrapping
     ['encrypt', 'decrypt']
   );
 }
@@ -53,13 +52,8 @@ export async function decryptText(key, ciphertextB64, ivB64) {
   return dec.decode(plaintextBuf);
 }
 
-// --- Integrity ledger ---
-// Each entry's hash = SHA-256(previousHash + ciphertext + iv). Because the
-// hash covers the CIPHERTEXT (not plaintext), verification works even without
-// the passphrase — you can prove the chain hasn't been tampered with before
-// you've even unlocked the vault. If any stored entry, in any order, is
-// edited or deleted, every hash after it stops matching and the UI flags
-// exactly where the chain breaks.
+// --- Integrity Ledger & Hash Chaining ---
+// Entry Hash = SHA-256(prevHash + "|" + ciphertext + "|" + iv)
 export async function sha256Hex(str) {
   const hashBuf = await crypto.subtle.digest('SHA-256', enc.encode(str));
   return Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -72,43 +66,61 @@ export async function computeEntryHash(previousHash, ciphertextB64, ivB64) {
 export const GENESIS_HASH = '0'.repeat(64);
 
 // Verifies a full ordered list of entries [{ciphertext, iv, prevHash, hash}, ...].
-// Returns { ok: true } or { ok: false, brokenAt: index } for the UI to surface.
+// Returns detailed verification status, chain node diagnostics, and tamper indicators.
 export async function verifyChain(entries) {
   let expectedPrev = GENESIS_HASH;
+  const nodes = [];
+
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
-    if (e.prevHash !== expectedPrev) return { ok: false, brokenAt: i, reason: 'prevHash mismatch' };
+    const prevMatches = (e.prevHash === expectedPrev);
     const recomputed = await computeEntryHash(e.prevHash, e.ciphertext, e.iv);
-    if (recomputed !== e.hash) return { ok: false, brokenAt: i, reason: 'hash mismatch (content altered)' };
+    const hashMatches = (recomputed === e.hash);
+
+    const isBlockValid = prevMatches && hashMatches;
+
+    nodes.push({
+      index: i + 1,
+      hash: e.hash,
+      shortHash: e.hash ? `${e.hash.substring(0, 8)}...${e.hash.substring(56)}` : '???',
+      prevHash: e.prevHash,
+      shortPrev: e.prevHash ? `${e.prevHash.substring(0, 8)}...` : '00000000...',
+      isValid: isBlockValid,
+      reason: !prevMatches ? 'Chain link broken (prevHash mismatch)' : (!hashMatches ? 'Payload tampered (hash mismatch)' : 'Cryptographically valid'),
+    });
+
+    if (!isBlockValid) {
+      return {
+        ok: false,
+        brokenAt: i,
+        reason: !prevMatches ? 'Previous hash link mismatch' : 'Ciphertext or IV altered (Hash mismatch)',
+        nodes,
+      };
+    }
     expectedPrev = e.hash;
   }
-  return { ok: true };
+
+  return { ok: true, nodes, totalVerified: entries.length };
 }
 
-// --- Recovery Kit Cryptography ---
+// --- Emergency Recovery Kit Cryptography ---
 export function generateRecoveryCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Base32-like without ambiguous I, O, 0, 1
   const array = new Uint8Array(24);
   let code = '';
-  let count = 0;
-  while (count < 24) {
-    crypto.getRandomValues(array);
-    for (let i = 0; i < array.length && count < 24; i++) {
-      const val = array[i];
-      if (val < 252) { // 252 is the highest multiple of 36 less than 256
-        if (count > 0 && count % 4 === 0) code += '-';
-        code += chars[val % chars.length];
-        count++;
-      }
-    }
+  crypto.getRandomValues(array);
+  for (let i = 0; i < 24; i++) {
+    if (i > 0 && i % 4 === 0) code += '-';
+    code += chars[array[i] % chars.length];
   }
   return code;
 }
 
 export async function wrapKey(rawKeyBytes, recoveryCode) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cleanCode = recoveryCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   const baseKey = await crypto.subtle.importKey(
-    'raw', enc.encode(recoveryCode.replace(/-/g, '')), 'PBKDF2', false, ['deriveKey']
+    'raw', enc.encode(cleanCode), 'PBKDF2', false, ['deriveKey']
   );
   const wrappingKey = await crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
@@ -124,7 +136,7 @@ export async function wrapKey(rawKeyBytes, recoveryCode) {
   return {
     ciphertext: toB64(ciphertext),
     iv: toB64(iv),
-    salt: toB64(salt)
+    salt: toB64(salt),
   };
 }
 
@@ -132,8 +144,9 @@ export async function unwrapKey(wrappedB64, ivB64, saltB64, recoveryCode) {
   const salt = fromB64(saltB64);
   const iv = fromB64(ivB64);
   const ciphertext = fromB64(wrappedB64);
+  const cleanCode = recoveryCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   const baseKey = await crypto.subtle.importKey(
-    'raw', enc.encode(recoveryCode.replace(/-/g, '')), 'PBKDF2', false, ['deriveKey']
+    'raw', enc.encode(cleanCode), 'PBKDF2', false, ['deriveKey']
   );
   const wrappingKey = await crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },

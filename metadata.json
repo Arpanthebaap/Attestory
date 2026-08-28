@@ -1,0 +1,10 @@
+{
+  "name": "Attestory",
+  "description": "An end-to-end encrypted, tamper-evident journal that proves itself with cryptographic hashing.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,128 +1,379 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Attestory — a journal that proves itself</title>
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attestory — Zero-Knowledge Gemini Journal</title>
+  <meta name="description" content="An enterprise-grade, end-to-end encrypted personal journal powered by Gemini with cryptographic tamper-evident proof chains." />
+  <meta property="og:title" content="Attestory — Zero-Knowledge Gemini Journal" />
+  <meta property="og:description" content="An enterprise-grade, end-to-end encrypted personal journal powered by Gemini with cryptographic tamper-evident proof chains." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <header class="topbar">
-  <div class="brand">Attestory</div>
-  <div id="signed-out">
-    <button id="signin-btn" class="btn-primary">Sign in with Google</button>
+  <div class="brand-group">
+    <div class="brand-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <span class="brand-title">Attestory</span>
+      <span class="brand-badge" title="End-to-End Encrypted (Zero-Knowledge AES-256-GCM)">Zero-Knowledge End-to-End Encryption</span>
+    </div>
   </div>
-  <div id="header-signed-in" class="hidden">
-    <span id="user-email" class="muted"></span>
-    <button id="dashboard-btn" class="btn-ghost">Security dashboard</button>
-    <button id="digest-btn" class="btn-ghost">Weekly reflection</button>
-    <button id="verify-btn" class="btn-ghost">Verify integrity</button>
-    <button id="reset-btn" class="btn-ghost">Reset journal</button>
-    <button id="signout-btn" class="btn-ghost">Sign out</button>
+
+  <div id="signed-out" class="topbar-actions">
+    <button id="signin-btn" class="btn btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Sign In
+    </button>
+  </div>
+
+  <div id="header-signed-in" class="topbar-actions hidden">
+    <div class="security-chip" id="security-chip" title="Vault state">
+      <span class="pulse-dot"></span>
+      <span id="vault-status-text">AES-256 Locked</span>
+    </div>
+    <span id="user-email" class="user-pill"></span>
+    <button id="chain-btn" class="btn btn-ghost" title="Inspect Hash Chain">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Proof Chain
+    </button>
+    <button id="digest-btn" class="btn btn-ghost" title="Weekly AI Digest">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      Weekly Digest
+    </button>
+    <button id="export-btn" class="btn btn-ghost" title="Export & Backup">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+    <button id="dashboard-btn" class="btn btn-ghost" title="Security Dashboard">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Audit
+    </button>
+    <button id="reset-btn" class="btn btn-ghost text-danger" title="Reset local vault">Reset</button>
+    <button id="signout-btn" class="btn btn-ghost">Sign Out</button>
   </div>
 </header>
 
 <main id="app">
-  <div id="body-signed-out" class="hero hidden">
-    <h1>A journal that proves itself.</h1>
-    <p class="muted">
-      Your entries are encrypted on your device before they're stored — we never hold the key.
-      Every entry is chained to the one before it, so if anything is ever silently altered,
-      you can prove it.
-    </p>
+  <!-- Signed-out Hero View -->
+  <div id="body-signed-out" class="hero-view">
+    <div class="hero-card">
+      <div class="hero-shield-badge">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <circle cx="12" cy="11" r="3"/>
+          <path d="m9 11 3 3 3-3"/>
+        </svg>
+      </div>
+      <h1 class="hero-title">A journal that proves itself.</h1>
+      <p class="hero-subtitle">
+        Your personal reflections are encrypted in your browser using <strong>AES-256-GCM</strong> before hitting the cloud. 
+        Every entry is mathematically chained with <strong>SHA-256</strong> hashes to guarantee tamper evidence.
+      </p>
+
+      <div class="hero-pillars">
+        <div class="pillar">
+          <div class="pillar-icon">🔒</div>
+          <h3>Zero-Knowledge Vault</h3>
+          <p>Keys derived via PBKDF2 with 150,000 iterations. We never hold your passphrase or plaintext.</p>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">⛓️</div>
+          <h3>Tamper-Evident Ledger</h3>
+          <p>Every thought is cryptographically linked to the previous one. Any alteration breaks the chain proof.</p>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">🛡️</div>
+          <h3>PII Redaction Shield</h3>
+          <p>Real-time redaction of sensitive credentials, phones, and emails before interacting with Gemini.</p>
+        </div>
+      </div>
+
+      <div class="hero-cta">
+        <button id="hero-signin-btn" class="btn btn-primary btn-large">
+          Launch Encrypted Journal
+        </button>
+      </div>
+    </div>
   </div>
 
-  <div id="body-signed-in" class="journal hidden">
-    <div id="verify-result" class="verify-result"></div>
+  <!-- Signed-in Journal Dashboard -->
+  <div id="body-signed-in" class="journal-view hidden">
+    <!-- Active Integrity Banner -->
+    <div id="integrity-banner" class="integrity-banner">
+      <div class="integrity-info">
+        <span class="chain-indicator"></span>
+        <span id="chain-status-label">Cryptographic Chain: Synced & Verified (Genesis tail active)</span>
+      </div>
+      <button id="quick-verify-btn" class="btn btn-sm btn-outline">Verify SHA-256 Chain</button>
+    </div>
+
+    <!-- Mode Selector / Persona Bar -->
+    <div class="mode-selector-bar">
+      <span class="mode-label">AI Persona:</span>
+      <div class="persona-chips" id="persona-chips">
+        <button type="button" class="persona-chip active" data-mode="socratic">
+          <span class="chip-icon">🏛️</span> Socratic Inquiry
+        </button>
+        <button type="button" class="persona-chip" data-mode="brainstorm">
+          <span class="chip-icon">💡</span> Brainstorming
+        </button>
+        <button type="button" class="persona-chip" data-mode="stoic">
+          <span class="chip-icon">🌿</span> Stoic Guide
+        </button>
+        <button type="button" class="persona-chip" data-mode="executive">
+          <span class="chip-icon">⚡</span> Executive Clarity
+        </button>
+        <button type="button" class="persona-chip" data-mode="gratitude">
+          <span class="chip-icon">✨</span> Gratitude Coach
+        </button>
+      </div>
+    </div>
+
+    <!-- Journal Conversation List -->
     <div id="entries-list" class="entries-list"></div>
 
+    <!-- Chat & Entry Input -->
     <form id="chat-form" class="chat-form">
-      <label class="redact-row">
-        <input type="checkbox" id="redact-toggle" />
-        Redact obvious PII (emails, phone numbers, card numbers) before sending to Gemini
-      </label>
-      <div class="chat-input-row">
-        <input id="chat-input" type="text" placeholder="Write what's on your mind…" autocomplete="off" />
-        <button type="submit" class="btn-primary">Send</button>
+      <div class="input-options-row">
+        <label class="redact-toggle-label">
+          <input type="checkbox" id="redact-toggle" checked />
+          <span class="toggle-custom"></span>
+          <span class="toggle-text">PII Privacy Shield (Strip emails, phones, card numbers, API keys)</span>
+        </label>
+        <div id="pii-scanner-badge" class="pii-scanner-badge clean">
+          Shield Active (0 detected)
+        </div>
+      </div>
+
+      <div class="chat-input-wrapper">
+        <textarea id="chat-input" rows="2" placeholder="Write what's on your mind... (Encrypted locally before sending)" autocomplete="off"></textarea>
+        <div class="input-action-buttons">
+          <button type="button" id="voice-btn" class="btn-icon" title="Voice Dictation">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button type="submit" id="send-btn" class="btn btn-primary btn-send">
+            <span>Send</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
       </div>
     </form>
   </div>
 </main>
 
-<!-- Unlock / set passphrase modal -->
+<!-- Unlock / Passphrase Modal -->
 <div id="unlock-modal" class="modal-overlay hidden">
-  <div class="modal">
-    <h2 id="unlock-title">Enter your journal passphrase</h2>
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-icon">🔐</div>
+      <div>
+        <h2 id="unlock-title">Unlock Encrypted Vault</h2>
+        <p class="modal-subtitle">Client-side zero-knowledge decryption</p>
+      </div>
+    </div>
     
-    <div id="unlock-tabs" class="tabs hidden">
+    <div id="unlock-tabs" class="tab-group hidden">
       <button type="button" id="tab-passphrase" class="tab-btn active">Passphrase</button>
-      <button type="button" id="tab-recovery" class="tab-btn">Recovery Code</button>
+      <button type="button" id="tab-recovery" class="tab-btn">Emergency Recovery Kit</button>
     </div>
 
-    <form id="unlock-form">
+    <form id="unlock-form" class="modal-form">
       <div id="passphrase-group">
-        <p class="muted small">
-          This passphrase never leaves your browser. We cannot reset it for you —
-          that's the tradeoff for us never being able to read your entries either.
+        <p class="modal-note">
+          Your passphrase derives the 256-bit AES key via PBKDF2 (150,000 rounds). It never leaves this browser tab.
         </p>
-        <input id="passphrase-input" type="password" placeholder="Passphrase" required autocomplete="off" />
+        <div class="input-field-group">
+          <input id="passphrase-input" type="password" placeholder="Enter passphrase" required autocomplete="off" />
+        </div>
       </div>
       <div id="recovery-group" class="hidden">
-        <p class="muted small">
-          Enter the 24-character recovery code generated during setup to restore access to your encrypted vault.
+        <p class="modal-note">
+          Enter your 24-character Recovery Code to unwrap and restore your AES-256 vault key.
         </p>
-        <input id="recovery-input" type="text" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" />
+        <div class="input-field-group">
+          <input id="recovery-input" type="text" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" />
+        </div>
       </div>
-      <button type="submit" id="unlock-submit-btn" class="btn-primary" style="margin-top: 15px; width: 100%;">Unlock</button>
+      <button type="submit" id="unlock-submit-btn" class="btn btn-primary btn-block">Unlock Journal</button>
     </form>
   </div>
 </div>
 
-<!-- Recovery Kit Setup modal -->
+<!-- Recovery Setup Modal -->
 <div id="recovery-setup-modal" class="modal-overlay hidden">
-  <div class="modal">
-    <h2>Your Emergency Recovery Kit</h2>
-    <p class="muted small">
-      This code can restore access to your journal if you forget your passphrase. 
-      <strong>Save it now — we cannot show it to you again.</strong>
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-icon">🔑</div>
+      <div>
+        <h2>Emergency Recovery Kit</h2>
+        <p class="modal-subtitle">Save this one-time cryptographic unwrap code</p>
+      </div>
+    </div>
+    <p class="modal-note">
+      Because Attestory uses zero-knowledge encryption, there is no "Forgot Password" button. 
+      This code unwraps your encryption key if you forget your passphrase.
     </p>
-    <div id="recovery-code-display" class="recovery-code-display"></div>
-    <button id="recovery-confirm-btn" class="btn-primary" style="margin-top: 15px; width: 100%;">I have saved this code</button>
+    <div id="recovery-code-display" class="recovery-code-box"></div>
+    <div class="recovery-actions">
+      <button type="button" id="copy-recovery-btn" class="btn btn-outline">Copy Code</button>
+      <button type="button" id="recovery-confirm-btn" class="btn btn-primary">I Have Safely Saved It</button>
+    </div>
   </div>
 </div>
 
-<!-- Weekly Digest Modal -->
+<!-- Proof Chain Inspector & Tamper Simulator Modal -->
+<div id="chain-modal" class="modal-overlay hidden">
+  <div class="modal-card modal-wide">
+    <div class="modal-header">
+      <div class="modal-icon">⛓️</div>
+      <div>
+        <h2>Cryptographic Proof Chain Explorer</h2>
+        <p class="modal-subtitle">Live SHA-256 blockchain verification and tamper detection engine</p>
+      </div>
+      <button class="modal-close-btn" id="close-chain">&times;</button>
+    </div>
+
+    <div class="chain-meta-bar">
+      <div class="meta-item">
+        <span class="meta-label">Genesis Block</span>
+        <span class="meta-val font-mono">00000000...0000</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Algorithm</span>
+        <span class="meta-val font-mono">SHA-256(prev | cipher | iv)</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Total Verified Blocks</span>
+        <span id="chain-count-badge" class="meta-val">0</span>
+      </div>
+    </div>
+
+    <div class="chain-actions-bar">
+      <button type="button" id="btn-reverify-chain" class="btn btn-sm btn-primary">Run Cryptographic Audit</button>
+      <button type="button" id="btn-simulate-tamper" class="btn btn-sm btn-outline text-danger">Simulate Database Tamper</button>
+      <button type="button" id="btn-restore-chain" class="btn btn-sm btn-ghost hidden">Restore Authentic State</button>
+    </div>
+
+    <div id="chain-status-box" class="chain-status-box valid">
+      ✓ All entries cryptographically verified. No tampering detected.
+    </div>
+
+    <div id="chain-nodes-container" class="chain-nodes-container"></div>
+  </div>
+</div>
+
+<!-- Weekly Reflection & Cognitive Digest Modal -->
 <div id="digest-modal" class="modal-overlay hidden">
-  <div class="modal">
-    <h2>Weekly Reflection Digest</h2>
-    <p class="muted small">
-      Generate an AI-powered summary of your past week. Your entries will be decrypted locally and sent securely to Gemini.
-    </p>
-    <form id="digest-form">
-      <input id="digest-focus-input" type="text" placeholder="Special focus (optional, e.g. 'work stress', 'health')" autocomplete="off" style="width: 100%; margin-bottom: 15px;" />
-      <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
-        <button type="button" id="close-digest" class="btn-ghost">Cancel</button>
-        <button type="submit" id="digest-submit-btn" class="btn-primary">Generate</button>
+  <div class="modal-card modal-wide">
+    <div class="modal-header">
+      <div class="modal-icon">✨</div>
+      <div>
+        <h2>Weekly Cognitive Digest</h2>
+        <p class="modal-subtitle">AI-synthesized reflection, mood trajectory & growth action plan</p>
+      </div>
+      <button class="modal-close-btn" id="close-digest">&times;</button>
+    </div>
+
+    <form id="digest-form" class="digest-form-box">
+      <p class="modal-note">
+        Entries are decrypted in browser memory and sent securely to Gemini 2.5 with a dedicated reflection synthesis schema.
+      </p>
+      <div class="digest-input-row">
+        <input id="digest-focus-input" type="text" placeholder="Optional focus lens (e.g. 'work-life balance', 'habit consistency', 'creativity')" autocomplete="off" />
+        <button type="submit" id="digest-submit-btn" class="btn btn-primary">Generate Digest</button>
       </div>
     </form>
+
+    <div id="digest-loading" class="digest-loading hidden">
+      <div class="spinner"></div>
+      <p>Synthesizing weekly reflection patterns with Gemini...</p>
+    </div>
+
+    <div id="digest-content" class="digest-content hidden"></div>
   </div>
 </div>
 
-<!-- Security dashboard modal -->
+<!-- Security & Compliance Dashboard Modal -->
 <div id="dashboard-modal" class="modal-overlay hidden">
-  <div class="modal wide">
-    <h2>Security dashboard</h2>
-    <ul class="status-list">
-      <li>✓ Entries encrypted with AES-256-GCM before leaving your device</li>
-      <li>✓ Encryption key derived from your passphrase, never transmitted</li>
-      <li>✓ Firestore access restricted to your own uid by security rules</li>
-      <li>✓ Gemini API key stored in Secret Manager, never in source or env files</li>
-      <li>✓ Each entry cryptographically chained to the previous one (tamper-evident)</li>
-    </ul>
-    <h3>AI access log (metadata only — never message content)</h3>
+  <div class="modal-card modal-wide">
+    <div class="modal-header">
+      <div class="modal-icon">🛡️</div>
+      <div>
+        <h2>Security & Governance Dashboard</h2>
+        <p class="modal-subtitle">Threat model verification and zero-knowledge compliance audit</p>
+      </div>
+      <button class="modal-close-btn" id="close-dashboard">&times;</button>
+    </div>
+
+    <div class="security-grid">
+      <div class="sec-card">
+        <div class="sec-icon">🔐</div>
+        <h4>Client-Side AES-256-GCM</h4>
+        <p>Authenticated encryption before outbound transmission. Zero plaintext stored in cloud databases.</p>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">🧂</div>
+        <h4>PBKDF2 Key Derivation</h4>
+        <p>150,000 rounds of HMAC-SHA-256 with unique cryptographically random per-user salt.</p>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">🏢</div>
+        <h4>Firestore Isolation Boundary</h4>
+        <p>Security rules restrict all operations to <code>/users/{uid}/**</code>. Plaintext fields rejected.</p>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">🔑</div>
+        <h4>GCP Secret Manager Proxy</h4>
+        <p>Gemini keys stored in Secret Manager, loaded into server-side ephemeral memory only.</p>
+      </div>
+    </div>
+
+    <h3 class="audit-section-title">Zero-Plaintext AI Access Log (Metadata Only)</h3>
+    <p class="audit-desc">Tracks model invocation timestamps, latency, and redaction metadata. Never logs user thoughts or prompts.</p>
     <div id="audit-list" class="audit-list"></div>
-    <button id="close-dashboard" class="btn-ghost">Close</button>
+  </div>
+</div>
+
+<!-- Export & Portability Modal -->
+<div id="export-modal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-icon">📦</div>
+      <div>
+        <h2>Export & Data Portability</h2>
+        <p class="modal-subtitle">Zero-lockin encrypted backup & verifiable proof ledger</p>
+      </div>
+      <button class="modal-close-btn" id="close-export">&times;</button>
+    </div>
+
+    <div class="export-options">
+      <div class="export-option-card">
+        <div class="option-header">
+          <h4>Decrypted Journal (Markdown)</h4>
+          <span class="badge">Readable</span>
+        </div>
+        <p class="small text-muted">Plaintext markdown document of all decrypted entries, complete with cryptographic hash receipts.</p>
+        <button id="btn-export-markdown" class="btn btn-outline btn-block">Download Markdown (.md)</button>
+      </div>
+
+      <div class="export-option-card">
+        <div class="option-header">
+          <h4>Encrypted Vault Backup (JSON)</h4>
+          <span class="badge badge-accent">Zero-Knowledge</span>
+        </div>
+        <p class="small text-muted">Raw ciphertext, IVs, salts, and SHA-256 hash chains for cold storage and external verification.</p>
+        <button id="btn-export-json" class="btn btn-primary btn-block">Download Encrypted Backup (.json)</button>
+      </div>
+    </div>
   </div>
 </div>
 
