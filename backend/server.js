@@ -19,8 +19,16 @@ const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || true }));
 app.use(express.json({ limit: '512kb' }));
 
-// Serve frontend static assets from public/
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve frontend static assets from public/ with cache disabled
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res, filePath) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 try {
   admin.initializeApp();
@@ -395,8 +403,11 @@ app.get('/api/audit', requireAuth, async (req, res) => {
 
 app.get('/healthz', (req, res) => res.json({ ok: true, status: 'healthy', version: '2.0.0' }));
 
-// SPA fallback
+// SPA fallback with cache disabled
 app.get(/^(?!\/api).*/, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
