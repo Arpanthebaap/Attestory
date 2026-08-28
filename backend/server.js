@@ -19,16 +19,8 @@ const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || true }));
 app.use(express.json({ limit: '512kb' }));
 
-// Serve frontend static assets from public/ with cache disabled
-app.use(express.static(path.join(__dirname, 'public'), {
-  etag: false,
-  lastModified: false,
-  setHeaders: (res, filePath) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
-}));
+// Serve frontend static assets from public/
+app.use(express.static(path.join(__dirname, 'public')));
 
 try {
   admin.initializeApp();
@@ -374,12 +366,12 @@ CONSTRAINTS:
 app.get('/api/config', (req, res) => {
   res.json({
     firebase: {
-      apiKey: 'AIzaSyDg7qxvY7bcVQl0sKy1oaDOXebxBkezjrs',
-      authDomain: 'attestory-539601.firebaseapp.com',
-      projectId: 'attestory-539601',
-      storageBucket: 'attestory-539601.firebasestorage.app',
-      messagingSenderId: '42612879787',
-      appId: '1:42612879787:web:92e5abab33fb28cc3b62ee',
+      apiKey: process.env.FIREBASE_API_KEY || '',
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
+      projectId: process.env.FIREBASE_PROJECT_ID || 'attestory-539601',
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '',
+      appId: process.env.FIREBASE_APP_ID || '',
     }
   });
 });
@@ -403,11 +395,8 @@ app.get('/api/audit', requireAuth, async (req, res) => {
 
 app.get('/healthz', (req, res) => res.json({ ok: true, status: 'healthy', version: '2.0.0' }));
 
-// SPA fallback with cache disabled
+// SPA fallback
 app.get(/^(?!\/api).*/, (req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
