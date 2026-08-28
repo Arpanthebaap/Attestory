@@ -3,11 +3,20 @@
     "rules": "firestore.rules"
   },
   "hosting": {
-    "public": "frontend",
+    "public": "backend/public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "attestory-gateway",
+          "region": "us-central1"
+        }
+      }
     ]
   }
 }
