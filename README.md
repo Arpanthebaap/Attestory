@@ -20,7 +20,9 @@ Most "private AI journal" apps say some version of "your data is safe with us" w
 | Multi-turn AI interaction with Gemini | `backend/server.js` `/api/chat` — sends the last 8 decrypted turns as context on every call |
 | Isolated data storage in Firestore | `firestore.rules` — every read/write requires `request.auth.uid == uid` on the document path; backend writes only metadata, never content |
 | Secure key management via Secret Manager | `backend/server.js` `getGeminiApiKey()` — fetched from Secret Manager at request time, never in an env var or source file |
-| Original feature enhancement | Client-side zero-knowledge vault + hash-chained integrity ledger + security dashboard (see `SECURITY.md`) |
+| Emergency Recovery Kit | `frontend/crypto.js` `wrapKey`/`unwrapKey` — client-side PBKDF2 vault key wrapping to recover access without server exposure |
+| Weekly Reflection Digest | `backend/server.js` `/api/digest` — secure local decryption and structured summary generation via Gemini API |
+| Original feature enhancement | Client-side zero-knowledge vault + hash-chained integrity ledger + emergency recovery + weekly reflections (see `SECURITY.md`) |
 
 ## Project layout
 
@@ -61,34 +63,46 @@ gcloud secrets add-iam-policy-binding gemini-api-key \
   --role="roles/secretmanager.secretAccessor"
 ```
 
-### 3. Deploy the backend gateway to Cloud Run
+### 3. Deploy everything as one Cloud Run service (this is the submission link)
+
+The Ideathon rules ask specifically for a prototype "deployed on Cloud Run" — so `backend/` now serves both the frontend (from `backend/public/`) and the API from a single Cloud Run service. This is the URL you put in the submission form.
+
 ```bash
 cd backend
 gcloud run deploy attestory-gateway \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars GEMINI_SECRET_RESOURCE=projects/YOUR_PROJECT_NUMBER/secrets/gemini-api-key/versions/latest,ALLOWED_ORIGIN=https://YOUR_FIREBASE_HOSTING_DOMAIN
+  --min-instances 0 \
+  --max-instances 1 \
+  --memory 256Mi \
+  --set-env-vars GEMINI_SECRET_RESOURCE=projects/YOUR_PROJECT_NUMBER/secrets/gemini-api-key/versions/latest
 ```
-Copy the resulting service URL into `GATEWAY_URL` in `frontend/app.js`.
 
-`--allow-unauthenticated` is correct here — auth happens at the application layer (Firebase ID token verified inside `server.js`), not at the Cloud Run IAM layer, because the frontend calls this service directly from the browser.
+`--allow-unauthenticated` is correct here — auth happens at the application layer (Firebase ID token verified inside `server.js`), not at the Cloud Run IAM layer.
 
-### 4. Deploy the frontend
-Simplest path — Firebase Hosting:
+Before this works, edit `backend/public/app.js` and fill in your real `firebaseConfig` (Firebase project settings → General → your web app), then redeploy.
+
+**Important**: Firebase Auth only allows sign-in popups from domains you've explicitly authorized. In the Firebase console → Authentication → Settings → Authorized domains, add your Cloud Run domain (the `*.run.app` hostname from the URL above) — otherwise Google sign-in will fail silently on that URL even though it works fine on `localhost`.
+
+### 4. (Optional) Also deploy the frontend to Firebase Hosting
+Not required for submission, but useful as a second, faster-loading mirror:
 ```bash
 firebase init hosting   # public directory: frontend
 firebase deploy --only hosting
 ```
+Note this copy still needs its own `GATEWAY_URL` set to your Cloud Run URL in `frontend/app.js`, since it's a different origin than the API.
 
 ### 5. Try it
 Open the hosting URL, sign in with Google, set a passphrase, write an entry, get a Gemini reply, then hit **Verify integrity** to see the hash chain check pass — and try manually editing a document in the Firestore console to see it correctly fail.
 
 ## What "at least one original feature" means here
 
-Two, actually, working together as one coherent story rather than two bolted-on gimmicks:
+Four, actually, working together as one coherent story:
 
 1. **Zero-knowledge vault** — entries are unreadable to us, by construction, not by promise.
 2. **Integrity ledger** — entries are tamper-evident, so "private" doesn't quietly become "private, and also we could have edited your journal and you'd never know."
+3. **Emergency Recovery Kit** — allows recovering access to your encrypted entries if you forget your passphrase, using a client-side generated and wrapped key.
+4. **Weekly Reflection Digest** — generates warm, pattern-noticing reflections on past entries decrypted locally and summarized by Gemini.
 
 See `SECURITY.md` for the full technical writeup, including the parts we're deliberately *not* claiming.

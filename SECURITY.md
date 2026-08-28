@@ -41,12 +41,12 @@ The backend's Firestore writes (the metadata-only audit log) go through the Admi
 
 ## Key management
 
-The Gemini API key is never in source control, a Docker image layer, or a Cloud Run environment variable. It's fetched from Secret Manager at request time using the attached service account's IAM permissions (`roles/secretmanager.secretAccessor`, scoped to that one secret) and cached in the gateway's memory for the life of the instance — not written to disk.
+- The Gemini API key is never in source control, a Docker image layer, or a Cloud Run environment variable. It's fetched from Secret Manager at request time using the attached service account's IAM permissions (`roles/secretmanager.secretAccessor`, scoped to that one secret) and cached in the gateway's memory for the life of the instance — not written to disk.
+- **Emergency Recovery Kit**: A 24-character recovery phrase is generated client-side at vault setup and shown to the user exactly once. It is used to encrypt/wrap the derived vault key using PBKDF2 (100,000 iterations) and AES-GCM, storing only the encrypted-key blob under `users/{uid}/keyMeta/recovery`. Unwrapping is executed entirely client-side.
 
 ## What we'd do next with more time
 
 Being direct about the roadmap, because a judge asking "what about X" deserves an answer already on the page:
 
-- **Key recovery**: currently, a lost passphrase means lost access to past entries — by design, since recovery would require holding the key. A reasonable v2 is an optional recovery code generated once at setup, shown to the user exactly once, never stored.
 - **Client-side redaction before the network hop**, not just server-side — reduces the TLS-hop exposure window further.
 - **WebAuthn-bound entry signing** so the integrity ledger also proves authorship, not just non-tampering.

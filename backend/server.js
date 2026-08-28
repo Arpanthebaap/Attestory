@@ -11,16 +11,21 @@
 // This service only ever sees plaintext transiently, in memory, for the duration of
 // a single request — that boundary is the whole point of the architecture.
 
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
-const fetch = require('node-fetch');
 
 const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || true }));
 app.use(express.json({ limit: '256kb' })); // journal turns are short; cap payload size defensively
-app.use(express.static('public')); // serve static frontend files
+
+// Serve the frontend from this same Cloud Run service, so the one public URL
+// submitted for the Ideathon is a real, working, Cloud Run-hosted app — not
+// just a bare API. app.js now calls the API with relative paths (same origin),
+// so no GATEWAY_URL/CORS config is needed for the deployed app.
+app.use(express.static(path.join(__dirname, 'public')));
 
 admin.initializeApp(); // On Cloud Run this picks up the attached service account automatically.
 
@@ -76,26 +81,6 @@ function redact(text) {
   return { output, found };
 }
 
-function sanitizeContents(contents) {
-  if (!contents || contents.length === 0) return [];
-  const sanitized = [];
-  for (const turn of contents) {
-    if (sanitized.length === 0) {
-      sanitized.push(turn);
-    } else {
-      const lastTurn = sanitized[sanitized.length - 1];
-      if (lastTurn.role === turn.role) {
-        const lastText = lastTurn.parts[0].text || '';
-        const currentText = turn.parts[0].text || '';
-        lastTurn.parts[0].text = lastText + '\n' + currentText;
-      } else {
-        sanitized.push(turn);
-      }
-    }
-  }
-  return sanitized;
-}
-
 // ---- Chat endpoint: the only route that talks to Gemini ----
 app.post('/api/chat', requireAuth, async (req, res) => {
   const { message, history, redactPii } = req.body || {};
@@ -121,17 +106,16 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
   try {
     const apiKey = await getGeminiApiKey();
-    const rawContents = [
+    const contents = [
       ...safeHistory.map((turn) => ({
         role: turn.role === 'model' ? 'model' : 'user',
         parts: [{ text: String(turn.text || '').slice(0, 4000) }],
       })),
       { role: 'user', parts: [{ text: outgoing }] },
     ];
-    const contents = sanitizeContents(rawContents);
 
     const geminiRes = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -151,7 +135,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('Gemini error status:', geminiRes.status, 'body:', errText);
+      console.error('Gemini error', geminiRes.status); // status only — never log message content
       return res.status(502).json({ error: 'Gemini request failed', status: geminiRes.status });
     }
 
@@ -174,6 +158,138 @@ app.post('/api/chat', requireAuth, async (req, res) => {
   }
 });
 
+// ---- Weekly Digest endpoint ----
+app.post('/api/digest', requireAuth, async (req, res) => {
+  const { entries, customFocus } = req.body || {};
+
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return res.status(400).json({ error: 'entries is required and must be non-empty' });
+  }
+
+  // Sanitization and Cap
+  const sanitized = entries
+    .filter((e) => e && typeof e.content === 'string' && e.content.trim())
+    .slice(0, 50)
+    .map((e, idx) => ({
+      index: idx + 1,
+      date: new Date(e.timestamp || Date.now()).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }),
+      author: e.role === 'user' ? 'Journal Author' : 'AI Companion',
+      text: e.content.substring(0, 1500),
+    }));
+
+  if (sanitized.length === 0) {
+    return res.status(400).json({ error: 'No valid journal content entries found' });
+  }
+
+  const userPrompt = `Here is the journal activity for the past week:
+${JSON.stringify(sanitized, null, 2)}
+
+${customFocus ? `Special Focus Request: ${customFocus}` : ''}
+
+Please generate the weekly reflection digest.`;
+
+  try {
+    const apiKey = await getGeminiApiKey();
+    const geminiRes = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          systemInstruction: {
+            parts: [{
+              text: `You are Attestory's Weekly Reflection Digest synthesiser.
+You are given a chronological record of the user's decrypted journal entries from the past week.
+Analyze these personal reflections to produce a short, warm, pattern-noticing summary.
+Focus on:
+1. Recurring themes or recurring topics of interest.
+2. Emotional trajectory and mood shifts across the days.
+3. Personal wins, challenges overcome, or subtle insights worth celebrating.
+4. Gentle, encouraging closing thought.
+
+STRICT CONSTRAINTS:
+- Do NOT provide clinical, psychological, or medical diagnoses.
+- Keep tone deeply empathetic, grounded, observational, and warm.
+- Produce a structured JSON response matching the required schema.`,
+            }],
+          },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'object',
+              properties: {
+                digest: {
+                  type: 'string',
+                  description: 'A 2-3 paragraph reflective summary of the week.',
+                },
+                keyThemes: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: '3-4 short phrases capturing recurring themes.',
+                },
+                moodInsights: {
+                  type: 'string',
+                  description: 'Observations on the emotional trajectory.',
+                },
+                continuityNotes: {
+                  type: 'string',
+                  description: 'Continuity threads connecting this week to the past.',
+                },
+              },
+              required: ['digest', 'keyThemes', 'moodInsights', 'continuityNotes'],
+            },
+            maxOutputTokens: 800,
+            temperature: 0.7,
+          },
+        }),
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      console.error('Gemini error status:', geminiRes.status, 'body:', errText);
+      return res.status(502).json({ error: 'Gemini request failed', status: geminiRes.status });
+    }
+
+    const data = await geminiRes.json();
+    const replyText = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '{}';
+    
+    let digestData;
+    try {
+      digestData = JSON.parse(replyText);
+    } catch {
+      digestData = {
+        digest: replyText,
+        keyThemes: [],
+        moodInsights: '',
+        continuityNotes: ''
+      };
+    }
+
+    // Write to audit log
+    await db.collection('users').doc(req.uid).collection('auditLog').add({
+      action: 'digest_generation',
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.json({
+      digest: digestData.digest,
+      keyThemes: digestData.keyThemes,
+      moodInsights: digestData.moodInsights,
+      continuityNotes: digestData.continuityNotes,
+      model: 'gemini-2.5-flash',
+    });
+  } catch (err) {
+    console.error('digest handler error:', err.message);
+    return res.status(500).json({ error: 'internal error' });
+  }
+});
+
 // ---- Read-only audit log (metadata only, never content) ----
 app.get('/api/audit', requireAuth, async (req, res) => {
   const snap = await db
@@ -184,6 +300,12 @@ app.get('/api/audit', requireAuth, async (req, res) => {
 });
 
 app.get('/healthz', (req, res) => res.json({ ok: true }));
+
+// SPA fallback: any other GET request that isn't /api/* or a static file
+// serves index.html, so a direct link to the deployed URL always loads the app.
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 const port = process.env.PORT || 8080;
 app.listen(port, () => console.log(`Attestory gateway listening on ${port}`));

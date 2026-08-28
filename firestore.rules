@@ -14,11 +14,9 @@ service cloud.firestore {
       // that plaintext-shaped fields never exist on the schema, and that nobody
       // other than the owner can touch the doc at all.
       match /entries/{entryId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        allow create, update: if request.auth != null
+        allow read, write: if request.auth != null
           && request.auth.uid == uid
           && !('plaintext' in request.resource.data); // defense in depth: reject any field named "plaintext"
-        allow delete: if request.auth != null && request.auth.uid == uid;
       }
 
       // Per-user salt used to derive their local encryption key. Not secret on
@@ -27,9 +25,11 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
 
+      // Metadata-only audit log, written by the backend service account
+      // (via Admin SDK, which bypasses these rules) and read-only for the owner.
       match /auditLog/{entryId} {
         allow read: if request.auth != null && request.auth.uid == uid;
-        allow delete: if request.auth != null && request.auth.uid == uid;
+        allow write: if false; // only the backend's Admin SDK writes here
       }
     }
 

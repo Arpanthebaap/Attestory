@@ -33,7 +33,7 @@ export async function deriveKey(passphrase, saltB64) {
     { name: 'PBKDF2', salt: fromB64(saltB64), iterations: 150000, hash: 'SHA-256' },
     baseKey,
     { name: 'AES-GCM', length: 256 },
-    false,
+    true, // extractable (required for Recovery Kit wrapping)
     ['encrypt', 'decrypt']
   );
 }
@@ -83,4 +83,69 @@ export async function verifyChain(entries) {
     expectedPrev = e.hash;
   }
   return { ok: true };
+}
+
+// --- Recovery Kit Cryptography ---
+export function generateRecoveryCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const array = new Uint8Array(24);
+  let code = '';
+  let count = 0;
+  while (count < 24) {
+    crypto.getRandomValues(array);
+    for (let i = 0; i < array.length && count < 24; i++) {
+      const val = array[i];
+      if (val < 252) { // 252 is the highest multiple of 36 less than 256
+        if (count > 0 && count % 4 === 0) code += '-';
+        code += chars[val % chars.length];
+        count++;
+      }
+    }
+  }
+  return code;
+}
+
+export async function wrapKey(rawKeyBytes, recoveryCode) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const baseKey = await crypto.subtle.importKey(
+    'raw', enc.encode(recoveryCode.replace(/-/g, '')), 'PBKDF2', false, ['deriveKey']
+  );
+  const wrappingKey = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt']
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, wrappingKey, rawKeyBytes
+  );
+  return {
+    ciphertext: toB64(ciphertext),
+    iv: toB64(iv),
+    salt: toB64(salt)
+  };
+}
+
+export async function unwrapKey(wrappedB64, ivB64, saltB64, recoveryCode) {
+  const salt = fromB64(saltB64);
+  const iv = fromB64(ivB64);
+  const ciphertext = fromB64(wrappedB64);
+  const baseKey = await crypto.subtle.importKey(
+    'raw', enc.encode(recoveryCode.replace(/-/g, '')), 'PBKDF2', false, ['deriveKey']
+  );
+  const wrappingKey = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+  const decryptedBuf = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv }, wrappingKey, ciphertext
+  );
+  return crypto.subtle.importKey(
+    'raw', decryptedBuf, 'AES-GCM', true, ['encrypt', 'decrypt']
+  );
 }

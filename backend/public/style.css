@@ -104,3 +104,93 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px; }
 .status-list { list-style: none; padding: 0; margin: 16px 0; font-size: 14px; line-height: 2; }
 .audit-list { max-height: 200px; overflow-y: auto; font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
 .audit-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+
+/* Tabs for Unlock modal */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 15px;
+}
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+/* Recovery Code Display */
+.recovery-code-display {
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  font-family: monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #f59e0b; /* Gold/Amber accent */
+  margin: 15px 0;
+  user-select: all;
+}
+
+/* Weekly Reflection Digest card styling */
+.turn-digest {
+  align-self: center;
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid #d97706; /* gold border */
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.1);
+  padding: 16px;
+  max-width: 90%;
+  margin: 10px 0;
+}
+.digest-header {
+  font-weight: 700;
+  color: #f59e0b;
+  font-size: 15px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #d97706;
+  padding-bottom: 4px;
+}
+.digest-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.digest-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  background: rgba(217, 119, 6, 0.05);
+  padding: 10px;
+  border-radius: 6px;
+}
+.digest-meta-title {
+  font-weight: 600;
+  color: #f59e0b;
+}
+.digest-themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.digest-theme-badge {
+  background: rgba(217, 119, 6, 0.15);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: #f59e0b;
+}
