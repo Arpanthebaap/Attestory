@@ -366,12 +366,12 @@ CONSTRAINTS:
 app.get('/api/config', (req, res) => {
   res.json({
     firebase: {
-      apiKey: process.env.FIREBASE_API_KEY || '',
-      authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
-      projectId: process.env.FIREBASE_PROJECT_ID || 'attestory-539601',
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
-      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '',
-      appId: process.env.FIREBASE_APP_ID || '',
+      apiKey: 'AIzaSyDg7qxvY7bcVQl0sKy1oaDOXebxBkezjrs',
+      authDomain: 'attestory-539601.firebaseapp.com',
+      projectId: 'attestory-539601',
+      storageBucket: 'attestory-539601.firebasestorage.app',
+      messagingSenderId: '42612879787',
+      appId: '1:42612879787:web:92e5abab33fb28cc3b62ee',
     }
   });
 });
