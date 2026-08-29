@@ -14,6 +14,45 @@ import {
 const GATEWAY_URL = '';
 const $ = (id) => document.getElementById(id);
 
+function parseMarkdownToHtml(text) {
+  let escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  escaped = escaped.replace(/`(.*?)`/g, '<code class="inline-code">$1</code>');
+
+  const lines = escaped.split('\n');
+  let inList = false;
+  const processedLines = [];
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      if (!inList) {
+        processedLines.push('<ul>');
+        inList = true;
+      }
+      processedLines.push(`<li>${trimmed.substring(2)}</li>`);
+    } else {
+      if (inList) {
+        processedLines.push('</ul>');
+        inList = false;
+      }
+      processedLines.push(line);
+    }
+  }
+  if (inList) {
+    processedLines.push('</ul>');
+  }
+
+  return processedLines.join('\n').replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+}
+
 let currentUser = null;
 let vaultKey = null;      // AES-GCM CryptoKey, strictly in-memory
 let lastHash = GENESIS_HASH;
@@ -439,7 +478,11 @@ async function loadEntries() {
         }
         
         const textNode = document.createElement('span');
-        textNode.textContent = parsed.text;
+        if (parsed.role === 'model') {
+          textNode.innerHTML = parseMarkdownToHtml(parsed.text);
+        } else {
+          textNode.textContent = parsed.text;
+        }
         row.appendChild(textNode);
       }
       list.appendChild(row);
@@ -606,7 +649,7 @@ $('chat-form').onsubmit = async (e) => {
     modelRow.appendChild(badge);
 
     const replySpan = document.createElement('span');
-    replySpan.textContent = data.reply;
+    replySpan.innerHTML = parseMarkdownToHtml(data.reply);
     modelRow.appendChild(replySpan);
 
     list.appendChild(modelRow);

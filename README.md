@@ -16,11 +16,11 @@ Most "private AI journal" apps say some version of "your data is safe with us" w
 
 | Requirement | Implementation |
 |---|---|
-| User authentication via Firebase | `frontend/app.js` — Google sign-in via Firebase Auth |
+| User authentication via Firebase | `backend/public/app.js` — Google sign-in via Firebase Auth |
 | Multi-turn AI interaction with Gemini | `backend/server.js` `/api/chat` — sends the last 8 decrypted turns as context on every call |
 | Isolated data storage in Firestore | `firestore.rules` — every read/write requires `request.auth.uid == uid` on the document path; backend writes only metadata, never content |
 | Secure key management via Secret Manager | `backend/server.js` `getGeminiApiKey()` — fetched from Secret Manager at request time, never in an env var or source file |
-| Emergency Recovery Kit | `frontend/crypto.js` `wrapKey`/`unwrapKey` — client-side PBKDF2 vault key wrapping to recover access without server exposure |
+| Emergency Recovery Kit | `backend/public/crypto.js` `wrapKey`/`unwrapKey` — client-side PBKDF2 vault key wrapping to recover access without server exposure |
 | Weekly Reflection Digest | `backend/server.js` `/api/digest` — secure local decryption and structured summary generation via Gemini API |
 | Original feature enhancement | Client-side zero-knowledge vault + hash-chained integrity ledger + emergency recovery + weekly reflections (see `SECURITY.md`) |
 
@@ -28,16 +28,16 @@ Most "private AI journal" apps say some version of "your data is safe with us" w
 
 ```
 attestory/
-  backend/            Cloud Run gateway (Node/Express) — stateless, talks to Gemini
+  backend/            Cloud Run gateway + static assets served from public/
     server.js
     package.json
     Dockerfile
     .env.example
-  frontend/           Static web app — Firebase Auth, encryption, Firestore writes
-    index.html
-    app.js
-    crypto.js
-    style.css
+    public/           Static web app — Firebase Auth, encryption, Firestore writes
+      index.html
+      app.js
+      crypto.js
+      style.css
   firestore.rules      Per-user isolation rules
   SECURITY.md           Judge-facing writeup of the architecture and its honest limits
 ```
@@ -49,7 +49,7 @@ attestory/
 2. Enable **Authentication → Google** sign-in provider.
 3. Enable **Firestore** (production mode).
 4. Deploy the security rules: `firebase deploy --only firestore:rules` (after `firebase init` pointing at `firestore.rules`).
-5. Copy your web app config into `frontend/app.js` (`firebaseConfig` object).
+5. Copy your web app config into `backend/public/app.js` (`firebaseConfig` object).
 
 ### 2. Gemini API key in Secret Manager
 ```bash
@@ -88,10 +88,10 @@ Before this works, edit `backend/public/app.js` and fill in your real `firebaseC
 ### 4. (Optional) Also deploy the frontend to Firebase Hosting
 Not required for submission, but useful as a second, faster-loading mirror:
 ```bash
-firebase init hosting   # public directory: frontend
+firebase init hosting   # public directory: backend/public
 firebase deploy --only hosting
 ```
-Note this copy still needs its own `GATEWAY_URL` set to your Cloud Run URL in `frontend/app.js`, since it's a different origin than the API.
+Note this copy still needs its own `GATEWAY_URL` set to your Cloud Run URL in `backend/public/app.js`, since it's a different origin than the API.
 
 ### 5. Try it
 Open the hosting URL, sign in with Google, set a passphrase, write an entry, get a Gemini reply, then hit **Verify integrity** to see the hash chain check pass — and try manually editing a document in the Firestore console to see it correctly fail.
